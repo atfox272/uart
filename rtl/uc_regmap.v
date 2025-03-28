@@ -174,7 +174,7 @@ endgenerate
         .mem_wr_vld_o       (),
         .mem_rd_addr_o      (),
         .mem_rd_vld_o       (),
-        .wr_st_rd_data_o    (tx_fifo_flat),
+        .wr_st_rd_data_o    (tx_fifo_dat),
         .wr_st_rd_rdy_o     (tx_fifo_vld),
         .rd_st_wr_rdy_o     (rx_rdy)
     );

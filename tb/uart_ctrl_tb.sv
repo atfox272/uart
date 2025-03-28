@@ -69,7 +69,9 @@ module uart_ctrl_tb;
     logic   [ATX_RESP_W-1:0]                s_rresp_o;
     logic                                   s_rlast_o;
     logic                                   s_rvalid_o;
-
+    //
+    assign RX = TX;
+    
     // Instantiate the DUT (Device Under Test)
     uart_ctrl #(
         .INTERNAL_CLOCK(INTERNAL_CLOCK),
@@ -146,15 +148,15 @@ module uart_ctrl_tb;
                 s_w_transfer(.s_wdata({3'd1,    1'd1,   2'd0,   2'd3}), .s_wlast(1'b1));
                 // 3rd
                 s_w_transfer(.s_wdata(8'h11), .s_wlast(1'b0));
-                s_w_transfer(.s_wdata(8'hFF), .s_wlast(1'b1));
+                s_w_transfer(.s_wdata(8'hEE), .s_wlast(1'b1));
                 aclk_cl;
                 s_wvalid_i <= 1'b0;
             end
             begin   : AR_chn
                 // // Request for RX_DATA
-                // s_ar_transfer(.s_arid(5'h00), .s_araddr(32'h2000_0020), .s_arburst(2'b00), .s_arlen(8'd01));
-                // aclk_cl;
-                // s_arvalid_i <= 1'b0;
+                s_ar_transfer(.s_arid(5'h00), .s_araddr(32'h2000_0020), .s_arburst(2'b00), .s_arlen(8'd01));
+                aclk_cl;
+                s_arvalid_i <= 1'b0;
             end
             begin: R_chn
                 // Wrong request
