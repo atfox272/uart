@@ -1,0 +1,10 @@
+./../rtl/uart_ctrl.v
+./../rtl/uc_baud_gen.v
+./../rtl/uc_regmap.v
+./../rtl/uc_rx.v
+./../rtl/uc_tx.v
+./../rtl/common/adapter/axi/axi4_ctrl.v
+./../rtl/common/fifo/sync_fifo/fifo.v
+./../rtl/common/fifo/sync_fifo/sync_fifo.v
+./../rtl/common/skid_buffer/skid_buffer.v
+./../rtl/common/skid_buffer/sb_fifo.v

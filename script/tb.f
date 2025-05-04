@@ -1,0 +1,1 @@
+./../tb/uart_ctrl_tb.sv
