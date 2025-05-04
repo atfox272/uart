@@ -9,11 +9,11 @@
 // `define RD_ST_MODE 
 // `define CUSTOMIZE_MODE
 
-`define END_TIME        500000
+`define END_TIME        1500000
 module uart_ctrl_tb;
 
     // Parameters
-    parameter INTERNAL_CLOCK        = 1_000_000;
+    parameter INTERNAL_CLOCK        = 50_000_000;
     parameter ATX_BASE_ADDR         = 32'h2000_0000;    // Configuration registers region - BASE
     parameter UART_TX_FIFO_DEPTH    = 8;                // UART TX FIFO depth (element's width = 8bit)
     parameter UART_RX_FIFO_DEPTH    = 8;                // UART RX FIFO depth (element's width = 8bit)
@@ -69,9 +69,14 @@ module uart_ctrl_tb;
     logic   [ATX_RESP_W-1:0]                s_rresp_o;
     logic                                   s_rlast_o;
     logic                                   s_rvalid_o;
-    //
-    assign RX = TX;
-    
+
+    // External Driver
+    logic                                   tx_drv = 1'b1;
+    logic                                   rx_drv;
+
+    assign RX       = tx_drv;
+    assign rx_drv   = TX;
+
     // Instantiate the DUT (Device Under Test)
     uart_ctrl #(
         .INTERNAL_CLOCK(INTERNAL_CLOCK),
@@ -137,24 +142,27 @@ module uart_ctrl_tb;
                 // 2nd: Request for CONFIG.RX
                 s_aw_transfer(.s_awid(5'h00), .s_awaddr(32'h2000_0001), .s_awburst(2'b00), .s_awlen(8'd00));
                 // 3rd: Request for TX_DATA
-                s_aw_transfer(.s_awid(5'h00), .s_awaddr(32'h2000_0010), .s_awburst(2'b00), .s_awlen(8'd01));
+                s_aw_transfer(.s_awid(5'h00), .s_awaddr(32'h2000_0010), .s_awburst(2'b00), .s_awlen(8'd04));
                 aclk_cl;
                 s_awvalid_i <= 1'b0;
             end
             begin   : W_chn
-                // 1st                B9600     STOP2B  NO_PAR  DATA8B          
-                s_w_transfer(.s_wdata({3'd1,    1'd1,   2'd0,   2'd3}), .s_wlast(1'b1));
-                // 2nd                B9600     STOP2B  NO_PAR  DATA8B          
-                s_w_transfer(.s_wdata({3'd1,    1'd1,   2'd0,   2'd3}), .s_wlast(1'b1));
+                // 1st                B4800     STOP1B  NO_PAR  DATA8B          
+                s_w_transfer(.s_wdata({3'd0,    1'd0,   2'd0,   2'd3}), .s_wlast(1'b1));
+                // 2nd                B4800     STOP1B  NO_PAR  DATA8B          
+                s_w_transfer(.s_wdata({3'd0,    1'd0,   2'd0,   2'd3}), .s_wlast(1'b1));
                 // 3rd
-                s_w_transfer(.s_wdata(8'h11), .s_wlast(1'b0));
-                s_w_transfer(.s_wdata(8'hEE), .s_wlast(1'b1));
+                s_w_transfer(.s_wdata(8'hFF), .s_wlast(1'b0));
+                s_w_transfer(.s_wdata(8'hEE), .s_wlast(1'b0));
+                s_w_transfer(.s_wdata(8'hDD), .s_wlast(1'b0));
+                s_w_transfer(.s_wdata(8'hCC), .s_wlast(1'b0));
+                s_w_transfer(.s_wdata(8'hBB), .s_wlast(1'b1));
                 aclk_cl;
                 s_wvalid_i <= 1'b0;
             end
             begin   : AR_chn
                 // // Request for RX_DATA
-                s_ar_transfer(.s_arid(5'h00), .s_araddr(32'h2000_0020), .s_arburst(2'b00), .s_arlen(8'd01));
+                s_ar_transfer(.s_arid(5'h00), .s_araddr(32'h2000_0020), .s_arburst(2'b00), .s_arlen(8'd03));
                 aclk_cl;
                 s_arvalid_i <= 1'b0;
             end
@@ -164,8 +172,26 @@ module uart_ctrl_tb;
             end
         join_none
     end
+    initial begin
+        repeat(100) aclk_cl;
 
+        uart_tx(.tx_data(8'h11), .tx_baud(4800));
+        uart_tx(.tx_data(8'h22), .tx_baud(4800));
+        uart_tx(.tx_data(8'h33), .tx_baud(4800));
+        uart_tx(.tx_data(8'h44), .tx_baud(4800));
+    end
     /*          UART monitor            */
+    initial begin
+        logic [7:0] rx_data;
+        logic       rx_error;
+
+        #(`RST_DLY_START + `RST_DUR + 1);
+
+        forever begin
+            uart_rx(.rx_data(rx_data), .rx_error(rx_error), .rx_baud(4800));
+            $display("[INFO]: UART RX driver receive 0x%2h", rx_data);
+        end
+    end
     /*          UART monitor            */
 
 
@@ -194,16 +220,16 @@ module uart_ctrl_tb;
             //         aclk_cl;
             //     end
             // end
-            begin   : B_chn
-                while(1'b1) begin
-                    wait(s_bready_i & s_bvalid_o); #0.1;  // B hanshaking
-                    $display("\n---------- B channel ----------");
-                    $display("BID:      0x%8h", s_bid_o);
-                    $display("BRESP:    0x%8h", s_bresp_o);
-                    $display("-------------------------------");
-                    aclk_cl;
-                end
-            end
+            // begin   : B_chn
+            //     while(1'b1) begin
+            //         wait(s_bready_i & s_bvalid_o); #0.1;  // B hanshaking
+            //         $display("\n---------- B channel ----------");
+            //         $display("BID:      0x%8h", s_bid_o);
+            //         $display("BRESP:    0x%8h", s_bresp_o);
+            //         $display("-------------------------------");
+            //         aclk_cl;
+            //     end
+            // end
             // begin   : AR_chn
             //     while(1'b1) begin
             //         wait(s_arready_o & s_arvalid_i); #0.1;  // AR hanshaking
@@ -231,7 +257,129 @@ module uart_ctrl_tb;
     end
     /*          AXI4 monitor            */
 
-   /* DeepCode */
+    /* DeepCode */
+
+    task automatic uart_tx (
+        input [7:0] tx_data,
+        input int   tx_baud
+    );
+        localparam TXN_IDLE_ST      = 0;
+        localparam TXN_START_BIT_ST = 1;
+        localparam TXN_DATA_BIT_ST  = 2;
+        localparam TXN_STOP_BIT_ST  = 3;
+        int txn_st = TXN_IDLE_ST;
+        int data_cnt = 0;
+        int baud_cnt = (INTERNAL_CLOCK / tx_baud) - 1;
+        while (1'b1) begin
+            aclk_cl;
+            case(txn_st)
+                TXN_IDLE_ST: begin
+                    tx_drv = 1'b0;
+                    txn_st = TXN_START_BIT_ST;
+                    data_cnt = 0;
+                    baud_cnt = (INTERNAL_CLOCK / tx_baud) - 1;
+                end
+                TXN_START_BIT_ST: begin
+                    baud_cnt = baud_cnt - 1;
+                    if(baud_cnt == -1) begin
+                        tx_drv = tx_data[data_cnt];
+                        txn_st = TXN_DATA_BIT_ST;
+                        data_cnt = data_cnt + 1'b1;
+                        baud_cnt = (INTERNAL_CLOCK / tx_baud) - 1;
+                    end
+                end
+                TXN_DATA_BIT_ST: begin
+                    baud_cnt = baud_cnt - 1;
+                    if(baud_cnt == -1) begin
+                        if(data_cnt == 8) begin
+                            tx_drv = 1'b1;
+                            txn_st = TXN_STOP_BIT_ST;
+                            data_cnt = 0;
+                            baud_cnt = (INTERNAL_CLOCK / tx_baud) - 1;
+                        end
+                        else begin
+                            tx_drv = tx_data[data_cnt];
+                            data_cnt = data_cnt + 1'b1;
+                            baud_cnt = (INTERNAL_CLOCK / tx_baud) - 1;
+                        end
+                    end
+                end
+                TXN_STOP_BIT_ST: begin
+                    baud_cnt = baud_cnt - 1;
+                    if(baud_cnt == -1) begin
+                        tx_drv = 1'b1;
+                        txn_st = TXN_IDLE_ST;
+                        data_cnt = 0;
+                        baud_cnt = (INTERNAL_CLOCK / tx_baud) - 1;
+                        break;
+                    end
+                end
+            endcase
+        end
+    endtask
+    task automatic uart_rx (
+        output [7:0]    rx_data,
+        output          rx_error,
+        input  int      rx_baud
+    );
+        localparam TXN_IDLE_ST      = 0;
+        localparam TXN_START_BIT_ST = 1;
+        localparam TXN_DATA_BIT_ST  = 2;
+        localparam TXN_STOP_BIT_ST  = 3;
+        int txn_st = TXN_IDLE_ST;
+        int baud_cnt = (INTERNAL_CLOCK / rx_baud) / 2; // 1/2 baudrate cycle to shift 1/2 phase
+        int data_cnt = 0;
+        // rx_drv
+        while (1'b1) begin
+            aclk_cl;
+            case(txn_st)
+                TXN_IDLE_ST: begin
+                    if(rx_drv == 1'b0) begin
+                        baud_cnt = baud_cnt - 1;
+                        if(baud_cnt == -1) begin // To shift 1/2 phase
+                            txn_st   = TXN_START_BIT_ST;
+                            data_cnt = 0;
+                            baud_cnt = (INTERNAL_CLOCK / rx_baud) - 1;
+                        end    
+                    end
+                end
+                TXN_START_BIT_ST: begin
+                    baud_cnt = baud_cnt - 1;
+                    if(baud_cnt == -1) begin
+                        txn_st   = TXN_DATA_BIT_ST;
+                        rx_data[data_cnt] = rx_drv;
+                        data_cnt = data_cnt + 1;
+                        baud_cnt = (INTERNAL_CLOCK / rx_baud) - 1;
+                    end    
+                end
+                TXN_DATA_BIT_ST: begin
+                    baud_cnt = baud_cnt - 1;
+                    if(baud_cnt == -1) begin
+                        if(data_cnt == 8) begin
+                            txn_st   = TXN_STOP_BIT_ST;
+                            rx_error = (rx_drv == 1'b0);
+                            data_cnt = 0;
+                            baud_cnt = (INTERNAL_CLOCK / rx_baud) / 2; // Recovery the shifted phase
+                        end
+                        else begin
+                            rx_data[data_cnt] = rx_drv;
+                            data_cnt = data_cnt + 1;
+                            baud_cnt = (INTERNAL_CLOCK / rx_baud) - 1;
+                        end
+                    end    
+                end
+                TXN_STOP_BIT_ST: begin
+                    baud_cnt = baud_cnt - 1;
+                    if(baud_cnt == -1) begin
+                        txn_st = TXN_IDLE_ST;
+                        data_cnt = 0;
+                        baud_cnt = (INTERNAL_CLOCK / rx_baud) / 2;
+                        break;
+                    end
+                end
+            endcase
+        end
+    endtask
     task automatic s_aw_transfer(
         input [ATX_ID_W-1:0]            s_awid,
         input [ATX_ADDR_W-1:0]          s_awaddr,
