@@ -5,7 +5,7 @@
     "BASE_SDC_FILE": "dir::src/uart_ctrl.sdc",
     "PNR_SDC_FILE": "dir::src/uart_ctrl.sdc",
     "//": "Design type",
-    "DESIGN_IS_CORE": true,
+    "DESIGN_IS_CORE": false,
     "//": "Synthesis",
     "SYNTH_FLAT_TOP": 1,
     "SYNTH_STRATEGY": "AREA 1",
